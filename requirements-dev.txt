@@ -1,0 +1,8 @@
+# Include production dependencies
+-r requirements.txt
+
+# Linting & Formatting
+ruff>=0.1.0
+
+# Type Checking
+mypy>=1.8.0
