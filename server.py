@@ -228,7 +228,7 @@ class NcObject(NcMember):
         return "Property not found", False
 
     def invoke_method(self, oid, method_id, args):
-        return "Property not found", None
+        return "Methods not yet implemented", None
 
 
 class NcBlock(NcMember):
