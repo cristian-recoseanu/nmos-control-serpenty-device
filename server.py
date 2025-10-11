@@ -228,7 +228,7 @@ class NcObject(NcMember):
         return "Property not found", False
 
     def invoke_method(self, oid, method_id, args):
-        return "Property not found", None
+        return "Methods not yet implemented", None
 
 
 class NcBlock(NcMember):
@@ -288,6 +288,11 @@ class NcBlock(NcMember):
 
     def invoke_method(self, oid, method_id, args):
         if oid == self.base.oid:
+            lvl, idx = method_id.level, method_id.index
+            if (lvl, idx) == (2, 1):  # 2m1
+                return None, self.get_member_descriptors(args)
+            if (lvl, idx) == (2, 4):  # 2m4
+                return None, self.find_members_by_class_id(args)
             return self.base.invoke_method(oid, method_id, args)
         m = self.find_member(oid)
         return (
@@ -326,6 +331,73 @@ class NcBlock(NcMember):
             }
             for m in self.members
         ]
+
+    @staticmethod
+    def make_member_descriptor(member, owner):
+        return {
+            "role": member.get_role(),
+            "oid": member.get_oid(),
+            "constantOid": member.get_constant_oid(),
+            "classId": member.get_class_id(),
+            "userLabel": member.get_user_label() or "",
+            "owner": owner,
+        }
+
+    def get_member_descriptors(self, args):
+        recurse = args.get("recurse", False)
+
+        results = [
+            self.make_member_descriptor(m, self.base.get_oid()) for m in self.members
+        ]
+
+        if recurse:
+            for m in self.members:
+                if isinstance(m, NcBlock):
+                    results.extend(m.get_member_descriptors(args))
+
+        return results
+
+    def find_members_by_class_id(self, args):
+        class_id = args.get("classId")
+        if not class_id:
+            return []
+
+        recurse = args.get("recurse", False)
+        include_derived = args.get("includeDerived", False)
+
+        class_id_str = ".".join(str(x) for x in class_id)
+
+        def matches_class_id(cid):
+            cid_str = ".".join(str(x) for x in cid)
+            if include_derived:
+                return cid_str.startswith(class_id_str)
+            else:
+                return cid_str == class_id_str
+
+        results = [
+            self.make_member_descriptor(m, self.base.get_oid())
+            for m in self.members
+            if matches_class_id(m.get_class_id())
+        ]
+
+        if recurse:
+            for m in self.members:
+                if isinstance(m, NcBlock):
+                    results.extend(m.find_members_by_class_id(args))
+
+        if self.is_root and matches_class_id(self.base.get_class_id()):
+            results.append(
+                {
+                    "role": self.base.get_role(),
+                    "oid": self.base.get_oid(),
+                    "constantOid": self.base.get_constant_oid(),
+                    "classId": self.base.get_class_id(),
+                    "userLabel": self.base.get_user_label() or "",
+                    "owner": self.base.get_oid(),
+                }
+            )
+
+        return results
 
 
 # --- App state ---
