@@ -582,13 +582,15 @@ async def init_app():
         True, [1, 1], 1, True, None, "root", None, True, app_state.event_queue
     )
     # Child member
-    root.add_member(NcObject([1], 2, True, 1, "test", "test", app_state.event_queue))
+    root.add_member(
+        NcObject([1], 2, True, 1, "my-obj-01", "My object 01", app_state.event_queue)
+    )
     # Child block
     child_block = NcBlock(
-        False, [1, 1], 3, True, None, "child_block", None, True, app_state.event_queue
+        False, [1, 1], 3, True, None, "my-block-01", None, True, app_state.event_queue
     )
     child_block.add_member(
-        NcObject([1], 4, True, 3, "child_block_member", "Child", app_state.event_queue)
+        NcObject([1], 4, True, 3, "my-nested-block-obj", None, app_state.event_queue)
     )
     root.add_member(child_block)
 
