@@ -291,6 +291,10 @@ class NcBlock(NcMember):
             lvl, idx = method_id.level, method_id.index
             if (lvl, idx) == (2, 1):  # 2m1
                 return None, self.get_member_descriptors(args)
+            if (lvl, idx) == (2, 2):  # 2m2
+                return None, self.find_members_by_path(args)
+            if (lvl, idx) == (2, 3):  # 2m3
+                return None, self.find_members_by_role(args)
             if (lvl, idx) == (2, 4):  # 2m4
                 return None, self.find_members_by_class_id(args)
             return self.base.invoke_method(oid, method_id, args)
@@ -343,20 +347,78 @@ class NcBlock(NcMember):
             "owner": owner,
         }
 
+    # 2m1
     def get_member_descriptors(self, args):
         recurse = args.get("recurse", False)
-
         results = [
             self.make_member_descriptor(m, self.base.get_oid()) for m in self.members
+        ]
+        if recurse:
+            for m in self.members:
+                if isinstance(m, NcBlock):
+                    results.extend(m.get_member_descriptors(args))
+        return results
+
+    # 2m2
+    def find_members_by_path(self, args):
+        path = args.get("path")
+        if not isinstance(path, list) or not path:
+            return []
+
+        segments = [s.strip() for s in path if isinstance(s, str) and s.strip()]
+        if not segments:
+            return []
+
+        return self._find_members_by_path_recursive(segments)
+
+    def _find_members_by_path_recursive(self, segments):
+        if not segments:
+            return []
+
+        first, rest = segments[0], segments[1:]
+        results = []
+
+        for m in self.members:
+            if m.get_role() == first:
+                if not rest:
+                    results.append(self.make_member_descriptor(m, self.base.get_oid()))
+                elif isinstance(m, NcBlock):
+                    results.extend(m._find_members_by_path_recursive(rest))
+        return results
+
+    # 2m3
+    def find_members_by_role(self, args):
+        role = str(args.get("role", "")).strip()
+        if not role:
+            return []
+
+        case_sensitive = args.get("caseSensitive", False)
+        match_whole = args.get("matchWholeString", False)
+        recurse = args.get("recurse", False)
+
+        # Normalize search string
+        search_role = role if case_sensitive else role.lower()
+
+        def matches(r: str) -> bool:
+            if not r:
+                return False
+            target = r if case_sensitive else r.lower()
+            return target == search_role if match_whole else search_role in target
+
+        results = [
+            self.make_member_descriptor(m, self.base.get_oid())
+            for m in self.members
+            if matches(m.get_role())
         ]
 
         if recurse:
             for m in self.members:
                 if isinstance(m, NcBlock):
-                    results.extend(m.get_member_descriptors(args))
+                    results.extend(m.find_members_by_role(args))
 
         return results
 
+    # 2m4
     def find_members_by_class_id(self, args):
         class_id = args.get("classId")
         if not class_id:
@@ -369,10 +431,11 @@ class NcBlock(NcMember):
 
         def matches_class_id(cid):
             cid_str = ".".join(str(x) for x in cid)
-            if include_derived:
-                return cid_str.startswith(class_id_str)
-            else:
-                return cid_str == class_id_str
+            return (
+                cid_str.startswith(class_id_str)
+                if include_derived
+                else cid_str == class_id_str
+            )
 
         results = [
             self.make_member_descriptor(m, self.base.get_oid())
@@ -396,7 +459,6 @@ class NcBlock(NcMember):
                     "owner": self.base.get_oid(),
                 }
             )
-
         return results
 
 
