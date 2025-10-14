@@ -6,6 +6,7 @@ from dataclasses import dataclass, asdict
 from typing import Any, Dict, List, Optional
 from aiohttp import web, WSMsgType
 from abc import ABC, abstractmethod
+from enum import IntEnum
 
 # --- Message type constants ---
 MESSAGE_TYPE_COMMAND = 0
@@ -21,6 +22,37 @@ MESSAGE_TYPE_ERROR = 5
 class ElementId:
     level: int
     index: int
+
+    def to_dict(self) -> dict:
+        return {
+            "level": self.level,
+            "index": self.index,
+        }
+
+
+class NcPropertyChangeType(IntEnum):
+    ValueChanged = 0
+    SequenceItemAdded = 1
+    SequenceItemChanged = 2
+    SequenceItemRemoved = 3
+
+
+class NcDeviceGenericState(IntEnum):
+    Unknown = 0
+    NormalOperation = 1
+    Initializing = 2
+    Updating = 3
+    LicensingError = 4
+    InternalError = 5
+
+
+class NcResetCause(IntEnum):
+    Unknown = 0
+    PowerOn = 1
+    InternalError = 2
+    Upgrade = 3
+    ControllerRequest = 4
+    ManualReset = 5
 
 
 @dataclass
@@ -56,20 +88,83 @@ class IdArgsValue:
 
 @dataclass
 class PropertyChangedEventData:
-    propertyId: ElementId
-    changeType: int
+    property_id: ElementId
+    change_type: NcPropertyChangeType
     value: Any
-    sequenceItemIndex: Optional[int] = None
+    sequence_item_index: Optional[int] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "propertyId": self.property_id.to_dict(),
+            "changeType": int(self.change_type),
+            "value": self.value,
+            "sequenceItemIndex": self.sequence_item_index,
+        }
 
 
 @dataclass
 class PropertyChangedEvent:
     oid: int
-    eventId: ElementId
-    eventData: PropertyChangedEventData
+    event_id: ElementId
+    event_data: PropertyChangedEventData
+
+    def to_dict(self) -> dict:
+        return {
+            "oid": self.oid,
+            "eventId": self.event_id.to_dict(),
+            "eventData": self.event_data.to_dict(),
+        }
 
 
-# --- Helpers ---
+@dataclass
+class NcManufacturer:
+    name: str
+    organization_id: Optional[int] = None
+    website: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "organizationId": self.organization_id,
+            "website": self.website,
+        }
+
+
+@dataclass
+class NcProduct:
+    name: str
+    key: str
+    revision_level: str
+    brand_name: Optional[str] = None
+    uuid: Optional[str] = None
+    description: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "key": self.key,
+            "revisionLevel": self.revision_level,
+            "brandName": self.brand_name,
+            "uuid": self.uuid,
+            "description": self.description,
+        }
+
+
+@dataclass
+class NcDeviceOperationalState:
+    generic: NcDeviceGenericState
+    device_specific_details: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "generic": int(self.generic),
+            "deviceSpecificDetails": self.device_specific_details,
+        }
+
+
+# ====================================================
+# =============== JSON encoders/helpers ==============
+# ====================================================
 
 
 def tai_timestamp() -> str:
@@ -82,50 +177,36 @@ def tai_timestamp() -> str:
 def make_event(
     oid: int,
     prop_id: ElementId,
-    change_type: int,
+    change_type: NcPropertyChangeType,
     value: Any,
     seq_idx: Optional[int] = None,
 ):
     return PropertyChangedEvent(
         oid=oid,
-        eventId=ElementId(1, 1),
-        eventData=PropertyChangedEventData(prop_id, change_type, value, seq_idx),
+        event_id=ElementId(1, 1),
+        event_data=PropertyChangedEventData(prop_id, change_type, value, seq_idx),
     )
 
 
-def serialize_event(ev: PropertyChangedEvent) -> dict:
-    return {
-        "oid": ev.oid,
-        "eventId": asdict(ev.eventId),
-        "eventData": {
-            "propertyId": asdict(ev.eventData.propertyId),
-            "changeType": ev.eventData.changeType,
-            "value": ev.eventData.value,
-            "sequenceItemIndex": ev.eventData.sequenceItemIndex,
-        },
-    }
-
-
 class CustomEncoder(json.JSONEncoder):
+    """
+    Keep your older behavior but also serialize IntEnum as numbers and dataclasses properly.
+    """
+
     def default(self, o):
-        if hasattr(o, "__dict__") and not isinstance(o, ElementId):
+        # IntEnum -> numeric value
+        if isinstance(o, IntEnum):
+            return int(o)
+        # dataclasses -> asdict
+        if hasattr(o, "__dataclass_fields__"):
             return asdict(o)
+        # ElementId as dict
         if isinstance(o, ElementId):
             return {"level": o.level, "index": o.index}
+        # Generic fallback to asdict for objects with __dict__
+        if hasattr(o, "__dict__"):
+            return asdict(o)
         return super().default(o)
-
-
-# --- Property change type ---
-
-
-class NcPropertyChangeType:
-    ValueChanged = 0
-    SequenceItemAdded = 1
-    SequenceItemChanged = 2
-    SequenceItemRemoved = 3
-
-
-# --- NMOS Object/Block ---
 
 
 class NcMember(ABC):
@@ -235,7 +316,6 @@ class NcBlock(NcMember):
     def __init__(
         self,
         is_root,
-        class_id,
         oid,
         constant_oid,
         owner,
@@ -245,8 +325,15 @@ class NcBlock(NcMember):
         notifier,
     ):
         self.base = NcObject(
-            class_id, oid, constant_oid, owner, role, user_label, notifier
+            class_id=[1, 1],
+            oid=oid,
+            constant_oid=constant_oid,
+            owner=owner,
+            role=role,
+            user_label=user_label,
+            notifier=notifier,
         )
+
         self.is_root = is_root
         self.enabled = enabled
         self.members: List[NcMember] = []
@@ -462,7 +549,151 @@ class NcBlock(NcMember):
         return results
 
 
-# --- App state ---
+class NcDeviceManager(NcMember):
+    def __init__(
+        self,
+        oid: int,
+        constant_oid: bool,
+        owner: Optional[int],
+        role: str,
+        user_label: Optional[str],
+        nc_version: str,
+        manufacturer: NcManufacturer,
+        product: NcProduct,
+        serial_number: str,
+        notifier: asyncio.Queue,
+    ):
+        self.base = NcObject(
+            class_id=[1, 3, 1],
+            oid=oid,
+            constant_oid=constant_oid,
+            owner=owner,
+            role=role,
+            user_label=user_label,
+            notifier=notifier,
+        )
+        self.nc_version = nc_version
+        self.manufacturer = manufacturer
+        self.product = product
+        self.serial_number = serial_number
+        self.user_inventory_code: Optional[str] = None
+        self.device_name: Optional[str] = None
+        self.device_role: Optional[str] = None
+        self.operational_state = NcDeviceOperationalState(
+            generic=NcDeviceGenericState.NormalOperation, device_specific_details=None
+        )
+        self.reset_cause = NcResetCause.PowerOn
+        self.message: Optional[str] = None
+
+    def member_type(self) -> str:
+        return "NcDeviceManager"
+
+    def get_role(self) -> str:
+        return self.base.get_role()
+
+    def get_oid(self) -> int:
+        return self.base.get_oid()
+
+    def get_constant_oid(self) -> bool:
+        return self.base.get_constant_oid()
+
+    def get_class_id(self) -> List[int]:
+        return self.base.get_class_id()
+
+    def get_user_label(self) -> Optional[str]:
+        return self.base.get_user_label()
+
+    def get_property(self, _oid: int, id_args: IdArgs) -> tuple[Optional[str], Any]:
+        # properties at level 3 -> map indexes to fields
+        lvl, idx = id_args.id.level, id_args.id.index
+        if lvl == 3:
+            if idx == 1:
+                return None, self.nc_version
+            if idx == 2:
+                return None, self.manufacturer.to_dict()
+            if idx == 3:
+                return None, self.product.to_dict()
+            if idx == 4:
+                return None, self.serial_number
+            if idx == 5:
+                return None, self.user_inventory_code
+            if idx == 6:
+                return None, self.device_name
+            if idx == 7:
+                return None, self.device_role
+            if idx == 8:
+                return None, self.operational_state.to_dict()
+            if idx == 9:
+                return None, int(self.reset_cause)
+            if idx == 10:
+                return None, self.message
+            return None, None
+        # fall back to base object
+        return self.base.get_property(_oid, id_args)
+
+    def set_property(
+        self, _oid: int, id_args_value: IdArgsValue
+    ) -> tuple[Optional[str], bool]:
+        if id_args_value.id.level == 3:
+            idx = id_args_value.id.index
+            # 5: userInventoryCode
+            if idx == 5:
+                if id_args_value.value is None:
+                    self.user_inventory_code = None
+                elif isinstance(id_args_value.value, str):
+                    self.user_inventory_code = id_args_value.value
+                else:
+                    return ("Property value was invalid", False)
+                asyncio.create_task(
+                    self.base._notify(
+                        id_args_value.id,
+                        NcPropertyChangeType.ValueChanged,
+                        self.user_inventory_code,
+                    )
+                )
+                return None, True
+            # 6: deviceName
+            if idx == 6:
+                if id_args_value.value is None:
+                    self.device_name = None
+                elif isinstance(id_args_value.value, str):
+                    self.device_name = id_args_value.value
+                else:
+                    return ("Property value was invalid", False)
+                asyncio.create_task(
+                    self.base._notify(
+                        id_args_value.id,
+                        NcPropertyChangeType.ValueChanged,
+                        self.device_name,
+                    )
+                )
+                return None, True
+            # 7: deviceRole
+            if idx == 7:
+                if id_args_value.value is None:
+                    self.device_role = None
+                elif isinstance(id_args_value.value, str):
+                    self.device_role = id_args_value.value
+                else:
+                    return ("Property value was invalid", False)
+                asyncio.create_task(
+                    self.base._notify(
+                        id_args_value.id,
+                        NcPropertyChangeType.ValueChanged,
+                        self.device_role,
+                    )
+                )
+                return None, True
+            # Other level-3 properties are read-only
+            return ("Could not find the property or it is read-only", False)
+        # not level 3 => delegate to base
+        return self.base.set_property(_oid, id_args_value)
+
+    def invoke_method(
+        self, _oid: int, method_id: ElementId, args: Any
+    ) -> tuple[Optional[str], Any]:
+        # No methods on NcDeviceManager itself in this implementation - delegate to base
+        return self.base.invoke_method(_oid, method_id, args)
 
 
 class ConnectionState:
@@ -480,7 +711,7 @@ class AppState:
         self.event_queue: asyncio.Queue = asyncio.Queue()
         self.root_block: Optional[NcBlock] = None
         self.device = NmosDevice(
-            id=str(uuid.uuid4()),
+            id="67c25159-ce25-4000-a66c-f31fff890265",  # id=str(uuid.uuid4()),
             label="Example Device",
             description="NMOS Example Device",
             senders=[],
@@ -499,7 +730,7 @@ class AppState:
         text = json.dumps(
             {
                 "messageType": MESSAGE_TYPE_NOTIFICATION,
-                "notifications": [serialize_event(ev)],
+                "notifications": [ev.to_dict()],
             },
             cls=CustomEncoder,
         )
@@ -640,19 +871,46 @@ async def init_app():
     )
 
     # Root block
-    root = NcBlock(
-        True, [1, 1], 1, True, None, "root", None, True, app_state.event_queue
+    root = NcBlock(True, 1, True, None, "root", None, True, app_state.event_queue)
+
+    # Add NcDeviceManager (mirrors your Rust usage)
+    manufacturer = NcManufacturer(
+        name="Your Company", organization_id=None, website="https://example.com"
     )
-    # Child member
+    product = NcProduct(
+        name="Your Product",
+        key="MODEL-XYZ-2000",
+        revision_level="1.0",
+        brand_name="Your Brand",
+        uuid="550e8400-e29b-41d4-a716-446655440000",
+        description="Professional device",
+    )
+
+    device_manager = NcDeviceManager(
+        oid=2,
+        constant_oid=True,
+        owner=1,
+        role="DeviceManager",
+        user_label="Device Manager",
+        nc_version="v1.0.0",
+        manufacturer=manufacturer,
+        product=product,
+        serial_number="SN-123456789",
+        notifier=app_state.event_queue,
+    )
+    root.add_member(device_manager)
+
+    # Child member (keep existing objects)
     root.add_member(
-        NcObject([1], 2, True, 1, "my-obj-01", "My object 01", app_state.event_queue)
+        NcObject([1], 3, True, 1, "my-obj-01", "My object 01", app_state.event_queue)
     )
+
     # Child block
     child_block = NcBlock(
-        False, [1, 1], 3, True, None, "my-block-01", None, True, app_state.event_queue
+        False, 4, True, None, "my-block-01", None, True, app_state.event_queue
     )
     child_block.add_member(
-        NcObject([1], 4, True, 3, "my-nested-block-obj", None, app_state.event_queue)
+        NcObject([1], 5, True, 3, "my-nested-block-obj", None, app_state.event_queue)
     )
     root.add_member(child_block)
 
