@@ -1,6 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import time
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Dict
 from enum import IntEnum
 
 # --- Message type constants ---
@@ -51,10 +51,26 @@ class NcResetCause(IntEnum):
 
 
 @dataclass
+class NmosResource:
+    id: str
+    label: str
+    description: str
+    version: str
+    tags: Dict[str, List[str]] = field(default_factory=dict)
+
+
+@dataclass
 class DeviceControl:
     type: str
     href: str
     authorization: bool
+
+    def to_dict(self) -> dict:
+        return {
+            "type": self.type,
+            "href": self.href,
+            "authorization": self.authorization,
+        }
 
 
 @dataclass
@@ -62,12 +78,111 @@ class NmosDevice:
     id: str
     label: str
     description: str
+    version: str
     senders: List[str]
     receivers: List[str]
     node_id: str
     type: str
-    version: str
     controls: List[DeviceControl]
+    tags: Dict[str, List[str]] = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "label": self.label,
+            "description": self.description,
+            "version": self.version,
+            "tags": self.tags,
+            "senders": self.senders,
+            "receivers": self.receivers,
+            "node_id": self.node_id,
+            "type": self.type,
+            "controls": [c.to_dict() for c in self.controls],
+        }
+
+
+@dataclass
+class NmosClock:
+    name: str
+    ref_type: str
+
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "ref_type": self.ref_type,
+        }
+
+
+@dataclass
+class NmosInterface:
+    chassis_id: str
+    name: str
+    port_id: str
+
+    def to_dict(self) -> dict:
+        return {
+            "chassis_id": self.chassis_id,
+            "name": self.name,
+            "port_id": self.port_id,
+        }
+
+
+@dataclass
+class NmosEndpoint:
+    host: str
+    port: int
+    protocol: str
+
+    def to_dict(self) -> dict:
+        return {
+            "host": self.host,
+            "port": self.port,
+            "protocol": self.protocol,
+        }
+
+
+@dataclass
+class NmosApi:
+    endpoints: List[NmosEndpoint]
+    versions: List[str]
+
+    def to_dict(self) -> dict:
+        return {
+            "endpoints": [e.to_dict() for e in self.endpoints],
+            "versions": self.versions,
+        }
+
+
+@dataclass
+class NmosNode:
+    id: str
+    label: str
+    description: str
+    version: str
+    href: str
+    hostname: str
+    clocks: List[NmosClock]
+    interfaces: List[NmosInterface]
+    api: NmosApi
+    tags: Dict[str, List[str]] = field(default_factory=dict)
+    caps: Dict[str, Any] = field(default_factory=dict)
+    services: List[Dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "label": self.label,
+            "description": self.description,
+            "version": self.version,
+            "tags": self.tags,
+            "href": self.href,
+            "hostname": self.hostname,
+            "caps": self.caps,
+            "services": self.services,
+            "clocks": [c.to_dict() for c in self.clocks],
+            "interfaces": [i.to_dict() for i in self.interfaces],
+            "api": self.api.to_dict(),
+        }
 
 
 @dataclass

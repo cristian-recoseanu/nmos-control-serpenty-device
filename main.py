@@ -1,7 +1,7 @@
 import asyncio
 import json
 import uuid
-from dataclasses import asdict
+import socket
 from typing import Dict, Optional
 
 from aiohttp import web
@@ -11,9 +11,15 @@ from data_types import (
     MESSAGE_TYPE_NOTIFICATION,
     NcManufacturer,
     NcProduct,
+    NmosNode,
+    NmosClock,
+    NmosInterface,
+    NmosApi,
+    NmosEndpoint,
     NmosDevice,
     tai_timestamp,
 )
+
 from nc_block import NcBlock
 from nc_device_manager import NcDeviceManager
 from nc_object import NcObject
@@ -25,13 +31,46 @@ class AppState:
         self.connections: Dict[str, any] = {}
         self.event_queue: asyncio.Queue = asyncio.Queue()
         self.root_block: Optional[NcBlock] = None
+
+        # Get hostname
+        hostname = socket.gethostname()
+
+        # Create node
+        self.node = NmosNode(
+            id=str(uuid.uuid4()),
+            label="Example Node",
+            description="An example NMOS node",
+            version=tai_timestamp(),
+            href="http://127.0.0.1:3000",
+            hostname=hostname,
+            clocks=[NmosClock(name="clk0", ref_type="internal")],
+            interfaces=[
+                NmosInterface(
+                    chassis_id="00-15-5d-67-c3-4e",
+                    name="eth0",
+                    port_id="00-15-5d-67-c3-4e",
+                ),
+                NmosInterface(
+                    chassis_id="96-1c-70-61-b1-54",
+                    name="eth1",
+                    port_id="96-1c-70-61-b1-54",
+                ),
+            ],
+            api=NmosApi(
+                endpoints=[NmosEndpoint(host="127.0.0.1", port=3000, protocol="http")],
+                versions=["v1.3"],
+            ),
+            tags={},
+        )
+
+        # Create device
         self.device = NmosDevice(
             id="67c25159-ce25-4000-a66c-f31fff890265",
             label="Example Device",
             description="NMOS Example Device",
             senders=[],
             receivers=[],
-            node_id=str(uuid.uuid4()),
+            node_id=self.node.id,
             type="urn:x-nmos:device:generic",
             version=tai_timestamp(),
             controls=[
@@ -67,14 +106,61 @@ app_state = AppState()
 # --- REST handlers ---
 
 
-async def devices_handler(request):
-    return web.json_response([asdict(app_state.device)])
+async def base_is_04_rest_api_handler(request):
+    return web.json_response(
+        ["self/", "sources/", "flows/", "devices/", "senders/", "receivers/"]
+    )
 
 
-async def device_handler(request):
+async def node_self_rest_api_handler(request):
+    app_state = request.app["app_state"]
+    return web.json_response(app_state.node.to_dict())
+
+
+async def sources_rest_api_handler(request):
+    return web.json_response([])
+
+
+async def source_rest_api_handler(request):
+    return web.json_response({"error": "source not found"}, status=404)
+
+
+async def flows_rest_api_handler(request):
+    return web.json_response([])
+
+
+async def flow_rest_api_handler(request):
+    return web.json_response({"error": "flow not found"}, status=404)
+
+
+async def senders_rest_api_handler(request):
+    return web.json_response([])
+
+
+async def sender_rest_api_handler(request):
+    return web.json_response({"error": "sender not found"}, status=404)
+
+
+async def receivers_rest_api_handler(request):
+    return web.json_response([])
+
+
+async def receiver_rest_api_handler(request):
+    return web.json_response({"error": "receiver not found"}, status=404)
+
+
+async def devices_rest_api_handler(request):
+    app_state = request.app["app_state"]
+    return web.json_response([app_state.device.to_dict()])
+
+
+async def device_rest_api_handler(request):
+    app_state = request.app["app_state"]
     device_id = request.match_info.get("device_id")
+
     if device_id == app_state.device.id:
-        return web.json_response(asdict(app_state.device))
+        return web.json_response(app_state.device.to_dict())
+
     return web.json_response({"error": "device not found"}, status=404)
 
 
@@ -89,8 +175,34 @@ async def init_app():
 
     app.add_routes(
         [
-            web.get("/x-nmos/node/v1.3/devices/", devices_handler),
-            web.get("/x-nmos/node/v1.3/devices/{device_id}", device_handler),
+            # Base API endpoint
+            web.get("/x-nmos/node/v1.3", base_is_04_rest_api_handler),
+            web.get("/x-nmos/node/v1.3/", base_is_04_rest_api_handler),
+            # Self endpoint
+            web.get("/x-nmos/node/v1.3/self", node_self_rest_api_handler),
+            # Sources endpoints
+            web.get("/x-nmos/node/v1.3/sources", sources_rest_api_handler),
+            web.get("/x-nmos/node/v1.3/sources/", sources_rest_api_handler),
+            web.get("/x-nmos/node/v1.3/sources/{source_id}", source_rest_api_handler),
+            # Flows endpoints
+            web.get("/x-nmos/node/v1.3/flows", flows_rest_api_handler),
+            web.get("/x-nmos/node/v1.3/flows/", flows_rest_api_handler),
+            web.get("/x-nmos/node/v1.3/flows/{flow_id}", flow_rest_api_handler),
+            # Senders endpoints
+            web.get("/x-nmos/node/v1.3/senders", senders_rest_api_handler),
+            web.get("/x-nmos/node/v1.3/senders/", senders_rest_api_handler),
+            web.get("/x-nmos/node/v1.3/senders/{sender_id}", sender_rest_api_handler),
+            # Receivers endpoints
+            web.get("/x-nmos/node/v1.3/receivers", receivers_rest_api_handler),
+            web.get("/x-nmos/node/v1.3/receivers/", receivers_rest_api_handler),
+            web.get(
+                "/x-nmos/node/v1.3/receivers/{receiver_id}", receiver_rest_api_handler
+            ),
+            # Devices endpoints
+            web.get("/x-nmos/node/v1.3/devices", devices_rest_api_handler),
+            web.get("/x-nmos/node/v1.3/devices/", devices_rest_api_handler),
+            web.get("/x-nmos/node/v1.3/devices/{device_id}", device_rest_api_handler),
+            # WebSocket endpoint
             web.get("/ws", websocket_handler),
         ]
     )
