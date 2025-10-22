@@ -1,7 +1,7 @@
 import asyncio
 from typing import List
 
-from data_types import ElementId, NcPropertyChangeType, make_event
+from data_types import ElementId, NcMethodStatus, NcPropertyChangeType, make_event
 from nc_object import NcMember, NcObject
 
 
@@ -53,34 +53,44 @@ class NcBlock(NcMember):
         if oid == self.base.oid:
             lvl, idx = id_args.id.level, id_args.id.index
             if (lvl, idx) == (2, 1):
-                return None, self.enabled
+                return NcMethodStatus.Ok, None, self.enabled
             if (lvl, idx) == (2, 2):
-                return None, self.generate_members_descriptors()
+                return NcMethodStatus.Ok, None, self.generate_members_descriptors()
             return self.base.get_property(oid, id_args)
         m = self.find_member(oid)
-        return m.get_property(oid, id_args) if m else ("Member not found", None)
+        return (
+            m.get_property(oid, id_args)
+            if m
+            else (NcMethodStatus.BadOid, "Member not found", None)
+        )
 
     def set_property(self, oid, id_args_value):
         if oid == self.base.oid:
             return self.base.set_property(oid, id_args_value)
         m = self.find_member(oid)
-        return m.set_property(oid, id_args_value) if m else ("Member not found", False)
+        return (
+            m.set_property(oid, id_args_value)
+            if m
+            else (NcMethodStatus.BadOid, "Member not found", False)
+        )
 
     def invoke_method(self, oid, method_id, args):
         if oid == self.base.oid:
             lvl, idx = method_id.level, method_id.index
             if (lvl, idx) == (2, 1):  # 2m1
-                return None, self.get_member_descriptors(args)
+                return NcMethodStatus.Ok, None, self.get_member_descriptors(args)
             if (lvl, idx) == (2, 2):  # 2m2
-                return None, self.find_members_by_path(args)
+                return NcMethodStatus.Ok, None, self.find_members_by_path(args)
             if (lvl, idx) == (2, 3):  # 2m3
-                return None, self.find_members_by_role(args)
+                return NcMethodStatus.Ok, None, self.find_members_by_role(args)
             if (lvl, idx) == (2, 4):  # 2m4
-                return None, self.find_members_by_class_id(args)
+                return NcMethodStatus.Ok, None, self.find_members_by_class_id(args)
             return self.base.invoke_method(oid, method_id, args)
         m = self.find_member(oid)
         return (
-            m.invoke_method(oid, method_id, args) if m else ("Member not found", None)
+            m.invoke_method(oid, method_id, args)
+            if m
+            else (NcMethodStatus.BadOid, "Member not found", None)
         )
 
     def add_member(self, member):

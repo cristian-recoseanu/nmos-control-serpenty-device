@@ -4,6 +4,7 @@ from typing import Any, List, Optional
 
 from data_types import (
     ElementId,
+    NcMethodStatus,
     IdArgs,
     IdArgsValue,
     NcPropertyChangeType,
@@ -37,19 +38,21 @@ class NcMember(ABC):
         pass
 
     @abstractmethod
-    def get_property(self, oid: int, id_args: IdArgs) -> tuple[Optional[str], Any]:
+    def get_property(
+        self, oid: int, id_args: IdArgs
+    ) -> tuple[NcMethodStatus, Optional[str], Any]:
         pass
 
     @abstractmethod
     def set_property(
         self, oid: int, id_args_value: IdArgsValue
-    ) -> tuple[Optional[str], bool]:
+    ) -> tuple[NcMethodStatus, Optional[str], Any]:
         pass
 
     @abstractmethod
     def invoke_method(
         self, oid: int, method_id: ElementId, args: Any
-    ) -> tuple[Optional[str], Any]:
+    ) -> tuple[NcMethodStatus, Optional[str], Any]:
         pass
 
 
@@ -86,7 +89,10 @@ class NcObject(NcMember):
             (1, 5): self.role,
             (1, 6): self.user_label,
         }
-        return None, mapping.get((id_args.id.level, id_args.id.index), None)
+        key = (id_args.id.level, id_args.id.index)
+        if key in mapping:
+            return NcMethodStatus.Ok, None, mapping[key]
+        return NcMethodStatus.PropertyNotImplemented, "Property not found", None
 
     async def _notify(self, prop_id, change_type, value, seq_idx=None):
         await self.notifier.put(
@@ -107,8 +113,8 @@ class NcObject(NcMember):
                     id_args_value.value,
                 )
             )
-            return None, True
-        return "Property not found", False
+            return NcMethodStatus.Ok, None, True
+        return NcMethodStatus.PropertyNotImplemented, "Property not found", False
 
     def invoke_method(self, oid, method_id, args):
-        return "Methods not yet implemented", None
+        return NcMethodStatus.MethodNotImplemented, "Methods not yet implemented", None
