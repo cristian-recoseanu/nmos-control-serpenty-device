@@ -6,6 +6,7 @@ from data_types import (
     ElementId,
     IdArgs,
     IdArgsValue,
+    NcMethodStatus,
     MESSAGE_TYPE_COMMAND,
     MESSAGE_TYPE_COMMAND_RESPONSE,
     MESSAGE_TYPE_ERROR,
@@ -48,35 +49,35 @@ async def process_command(msg, root_block):
     for cmd in msg.get("commands", []):
         handle, oid, args = cmd.get("handle"), cmd.get("oid"), cmd.get("arguments")
         method_id = ElementId(**cmd.get("methodId", {}))
-        status, error, value = 200, None, None
+        status, error, value = NcMethodStatus.Ok, None, None
 
         try:
             if (method_id.level, method_id.index) == (1, 1):
-                err, val = root_block.get_property(oid, IdArgs(ElementId(**args["id"])))
-                value = val if err is None else None
-                if err:
-                    status, error = 400, err
+                st, err, val = root_block.get_property(
+                    oid, IdArgs(ElementId(**args["id"]))
+                )
+                status, error, value = st, err, val
             elif (method_id.level, method_id.index) == (1, 2):
-                err, ok = root_block.set_property(
+                st, err, ok = root_block.set_property(
                     oid, IdArgsValue(ElementId(**args["id"]), args.get("value"))
                 )
+                status = st
                 if not ok:
-                    status, error = 400, err
+                    error = err or "Set property failed"
             else:
-                err, resp = root_block.invoke_method(oid, method_id, args)
-                if err is None:
-                    value = resp
-                else:
-                    status, error = 400, err
+                st, err, resp = root_block.invoke_method(oid, method_id, args)
+                status, error, value = st, err, resp
         except Exception as e:
-            status, error = 400, str(e)
+            status, error = NcMethodStatus.Error, str(e)
 
-        responses.append(
-            {
-                "handle": handle,
-                "result": {"status": status, "value": value, "errorMessage": error},
-            }
-        )
+        if error is None:
+            result_obj = {"status": int(status)}
+            if value is not None:
+                result_obj["value"] = value
+            responses.append({"handle": handle, "result": result_obj})
+        else:
+            error_obj = {"status": int(status), "errorMessage": error}
+            responses.append({"handle": handle, "error": error_obj})
     return {"messageType": MESSAGE_TYPE_COMMAND_RESPONSE, "responses": responses}
 
 

@@ -5,6 +5,7 @@ from data_types import (
     ElementId,
     IdArgs,
     IdArgsValue,
+    NcMethodStatus,
     NcDeviceGenericState,
     NcDeviceOperationalState,
     NcManufacturer,
@@ -69,37 +70,39 @@ class NcDeviceManager(NcMember):
     def get_user_label(self) -> Optional[str]:
         return self.base.get_user_label()
 
-    def get_property(self, _oid: int, id_args: IdArgs) -> tuple[Optional[str], Any]:
+    def get_property(
+        self, _oid: int, id_args: IdArgs
+    ) -> tuple[NcMethodStatus, Optional[str], Any]:
         # properties at level 3 -> map indexes to fields
         lvl, idx = id_args.id.level, id_args.id.index
         if lvl == 3:
             if idx == 1:
-                return None, self.nc_version
+                return NcMethodStatus.Ok, None, self.nc_version
             if idx == 2:
-                return None, self.manufacturer.to_dict()
+                return NcMethodStatus.Ok, None, self.manufacturer.to_dict()
             if idx == 3:
-                return None, self.product.to_dict()
+                return NcMethodStatus.Ok, None, self.product.to_dict()
             if idx == 4:
-                return None, self.serial_number
+                return NcMethodStatus.Ok, None, self.serial_number
             if idx == 5:
-                return None, self.user_inventory_code
+                return NcMethodStatus.Ok, None, self.user_inventory_code
             if idx == 6:
-                return None, self.device_name
+                return NcMethodStatus.Ok, None, self.device_name
             if idx == 7:
-                return None, self.device_role
+                return NcMethodStatus.Ok, None, self.device_role
             if idx == 8:
-                return None, self.operational_state.to_dict()
+                return NcMethodStatus.Ok, None, self.operational_state.to_dict()
             if idx == 9:
-                return None, int(self.reset_cause)
+                return NcMethodStatus.Ok, None, int(self.reset_cause)
             if idx == 10:
-                return None, self.message
-            return None, None
+                return NcMethodStatus.Ok, None, self.message
+            return NcMethodStatus.BadOid, "Property not found", None
         # fall back to base object
         return self.base.get_property(_oid, id_args)
 
     def set_property(
         self, _oid: int, id_args_value: IdArgsValue
-    ) -> tuple[Optional[str], bool]:
+    ) -> tuple[NcMethodStatus, Optional[str], Any]:
         if id_args_value.id.level == 3:
             idx = id_args_value.id.index
             # 5: userInventoryCode
@@ -109,7 +112,11 @@ class NcDeviceManager(NcMember):
                 elif isinstance(id_args_value.value, str):
                     self.user_inventory_code = id_args_value.value
                 else:
-                    return ("Property value was invalid", False)
+                    return (
+                        NcMethodStatus.ParameterError,
+                        "Property value was invalid",
+                        False,
+                    )
                 asyncio.create_task(
                     self.base._notify(
                         id_args_value.id,
@@ -117,7 +124,7 @@ class NcDeviceManager(NcMember):
                         self.user_inventory_code,
                     )
                 )
-                return None, True
+                return NcMethodStatus.Ok, None, True
             # 6: deviceName
             if idx == 6:
                 if id_args_value.value is None:
@@ -125,7 +132,11 @@ class NcDeviceManager(NcMember):
                 elif isinstance(id_args_value.value, str):
                     self.device_name = id_args_value.value
                 else:
-                    return ("Property value was invalid", False)
+                    return (
+                        NcMethodStatus.ParameterError,
+                        "Property value was invalid",
+                        False,
+                    )
                 asyncio.create_task(
                     self.base._notify(
                         id_args_value.id,
@@ -133,7 +144,7 @@ class NcDeviceManager(NcMember):
                         self.device_name,
                     )
                 )
-                return None, True
+                return NcMethodStatus.Ok, None, True
             # 7: deviceRole
             if idx == 7:
                 if id_args_value.value is None:
@@ -141,7 +152,11 @@ class NcDeviceManager(NcMember):
                 elif isinstance(id_args_value.value, str):
                     self.device_role = id_args_value.value
                 else:
-                    return ("Property value was invalid", False)
+                    return (
+                        NcMethodStatus.ParameterError,
+                        "Property value was invalid",
+                        False,
+                    )
                 asyncio.create_task(
                     self.base._notify(
                         id_args_value.id,
@@ -149,14 +164,18 @@ class NcDeviceManager(NcMember):
                         self.device_role,
                     )
                 )
-                return None, True
+                return NcMethodStatus.Ok, None, True
             # Other level-3 properties are read-only
-            return ("Could not find the property or it is read-only", False)
+            return (
+                NcMethodStatus.Readonly,
+                "Could not find the property or it is read-only",
+                False,
+            )
         # not level 3 => delegate to base
         return self.base.set_property(_oid, id_args_value)
 
     def invoke_method(
         self, _oid: int, method_id: ElementId, args: Any
-    ) -> tuple[Optional[str], Any]:
+    ) -> tuple[NcMethodStatus, Optional[str], Any]:
         # No methods on NcDeviceManager itself in this implementation - delegate to base
         return self.base.invoke_method(_oid, method_id, args)

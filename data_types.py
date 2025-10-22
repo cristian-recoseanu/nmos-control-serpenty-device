@@ -13,6 +13,43 @@ MESSAGE_TYPE_ERROR = 5
 
 
 # --- Data types ---
+class NcMethodStatus(IntEnum):
+    Ok = 200
+    PropertyDeprecated = 298
+    MethodDeprecated = 299
+    BadCommandFormat = 400
+    Unauthorized = 401
+    BadOid = 404
+    Readonly = 405
+    InvalidRequest = 406
+    Conflict = 409
+    BufferOverflow = 413
+    IndexOutOfBounds = 414
+    ParameterError = 417
+    Locked = 423
+    DeviceError = 500
+    MethodNotImplemented = 501
+    PropertyNotImplemented = 502
+    NotReady = 503
+    Timeout = 504
+
+
+@dataclass
+class ResponseBase:
+    handle: Optional[int]
+    status: NcMethodStatus
+
+
+@dataclass
+class ResponseError(ResponseBase):
+    errorMessage: str
+
+
+@dataclass
+class ResponsePayload(ResponseBase):
+    value: Any
+
+
 @dataclass
 class ElementId:
     level: int
