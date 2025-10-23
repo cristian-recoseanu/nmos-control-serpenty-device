@@ -18,6 +18,9 @@ from data_types import (
     NmosEndpoint,
     NmosDevice,
     tai_timestamp,
+    NcTouchpointNmos,
+    NcTouchpointBase,
+    NcTouchpointResourceNmos,
 )
 
 from nc_block import NcBlock
@@ -208,7 +211,16 @@ async def init_app():
     )
 
     # Root block
-    root = NcBlock(True, 1, True, None, "root", None, True, app_state.event_queue)
+    root = NcBlock(
+        app_state.event_queue,
+        True,
+        1,
+        True,
+        None,
+        "root",
+        None,
+        True,
+    )
 
     # Add NcDeviceManager
     manufacturer = NcManufacturer(
@@ -234,21 +246,56 @@ async def init_app():
         product=product,
         serial_number="SN-123456789",
         notifier=app_state.event_queue,
+        touchpoints=[
+            NcTouchpointNmos(
+                base=NcTouchpointBase(context_namespace="x-nmos"),
+                resource=NcTouchpointResourceNmos(
+                    resource_type="device",
+                    id=app_state.device.id,
+                ),
+            )
+        ],
+        runtime_property_constraints=None,
     )
     root.add_member(device_manager)
 
     # Child member
-    root.add_member(
-        NcObject([1], 3, True, 1, "my-obj-01", "My object 01", app_state.event_queue)
+    obj1 = NcObject(
+        app_state.event_queue,
+        [1],
+        3,
+        True,
+        1,
+        "my-obj-01",
+        "My object 01",
+        None,
+        None,
     )
+    root.add_member(obj1)
 
     # Child block
     child_block = NcBlock(
-        False, 4, True, None, "my-block-01", None, True, app_state.event_queue
+        app_state.event_queue,
+        False,
+        4,
+        True,
+        None,
+        "my-block-01",
+        None,
+        True,
     )
-    child_block.add_member(
-        NcObject([1], 5, True, 3, "my-nested-block-obj", None, app_state.event_queue)
+    obj2 = NcObject(
+        app_state.event_queue,
+        [1],
+        5,
+        True,
+        3,
+        "my-nested-block-obj",
+        "My nested block obj",
+        None,
+        None,
     )
+    child_block.add_member(obj2)
     root.add_member(child_block)
 
     app_state.root_block = root

@@ -57,9 +57,22 @@ class NcMember(ABC):
 
 
 class NcObject(NcMember):
-    def __init__(self, class_id, oid, constant_oid, owner, role, user_label, notifier):
+    def __init__(
+        self,
+        notifier,
+        class_id,
+        oid,
+        constant_oid,
+        owner,
+        role,
+        user_label,
+        touchpoints: Optional[List[Any]],
+        runtime_property_constraints: Optional[List[Any]],
+    ):
         self.class_id, self.oid, self.constant_oid = class_id, oid, constant_oid
         self.owner, self.role, self.user_label = owner, role, user_label
+        self.touchpoints = touchpoints
+        self.runtime_property_constraints = runtime_property_constraints
         self.notifier = notifier
 
     def member_type(self):
@@ -88,6 +101,12 @@ class NcObject(NcMember):
             (1, 4): self.owner,
             (1, 5): self.role,
             (1, 6): self.user_label,
+            (1, 7): None
+            if self.touchpoints is None
+            else [tp.to_dict() for tp in self.touchpoints],
+            (1, 8): None
+            if self.runtime_property_constraints is None
+            else [c.to_dict() for c in self.runtime_property_constraints],
         }
         key = (id_args.id.level, id_args.id.index)
         if key in mapping:
