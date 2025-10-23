@@ -309,6 +309,120 @@ class NcDeviceOperationalState:
         }
 
 
+@dataclass
+class NcPropertyConstraintsBase:
+    property_id: ElementId
+    default_value: Optional[Any] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "propertyId": self.property_id.to_dict(),
+            "defaultValue": self.default_value,
+        }
+
+
+@dataclass
+class NcPropertyConstraintsNumber:
+    base: NcPropertyConstraintsBase
+    maximum: Optional[float] = None
+    minimum: Optional[float] = None
+    step: Optional[float] = None
+
+    def to_dict(self) -> dict:
+        d = self.base.to_dict()
+        d.update(
+            {
+                "maximum": self.maximum,
+                "minimum": self.minimum,
+                "step": self.step,
+            }
+        )
+        return d
+
+
+@dataclass
+class NcPropertyConstraintsString:
+    base: NcPropertyConstraintsBase
+    max_characters: Optional[int] = None
+    pattern: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        d = self.base.to_dict()
+        d.update(
+            {
+                "maxCharacters": self.max_characters,
+                "pattern": self.pattern,
+            }
+        )
+        return d
+
+
+@dataclass
+class NcTouchpointBase:
+    context_namespace: str
+
+    def to_dict(self) -> dict:
+        return {
+            "contextNamespace": self.context_namespace,
+        }
+
+
+@dataclass
+class NcTouchpointResourceNmos:
+    resource_type: str
+    id: Any
+
+    def to_dict(self) -> dict:
+        return {
+            "resourceType": self.resource_type,
+            "id": self.id,
+        }
+
+
+@dataclass
+class NcTouchpointNmos:
+    base: NcTouchpointBase
+    resource: NcTouchpointResourceNmos
+
+    def to_dict(self) -> dict:
+        d = self.base.to_dict()
+        d.update(
+            {
+                "resource": self.resource.to_dict(),
+            }
+        )
+        return d
+
+
+@dataclass
+class NcTouchpointResourceNmosChannelMapping:
+    resource_type: str
+    id: Any
+    io_id: Any
+
+    def to_dict(self) -> dict:
+        return {
+            "resourceType": self.resource_type,
+            "id": self.id,
+            "ioId": self.io_id,
+        }
+
+
+@dataclass
+class NcTouchpointNmosChannelMapping:
+    base: NcTouchpointBase
+    resource: NcTouchpointResourceNmosChannelMapping
+
+    def to_dict(self) -> dict:
+        d = self.base.to_dict()
+        d.update(
+            {
+                "resource": self.resource.to_dict(),
+            }
+        )
+        return d
+
+
 # ====================================================
 # =============== JSON encoders/helpers ==============
 # ====================================================

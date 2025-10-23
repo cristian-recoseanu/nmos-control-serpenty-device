@@ -1,5 +1,5 @@
 import asyncio
-from typing import List
+from typing import List, Optional, Any
 
 from data_types import ElementId, NcMethodStatus, NcPropertyChangeType, make_event
 from nc_object import NcMember, NcObject
@@ -8,6 +8,7 @@ from nc_object import NcMember, NcObject
 class NcBlock(NcMember):
     def __init__(
         self,
+        notifier,
         is_root,
         oid,
         constant_oid,
@@ -15,16 +16,19 @@ class NcBlock(NcMember):
         role,
         user_label,
         enabled,
-        notifier,
+        touchpoints: Optional[List[Any]] = None,
+        runtime_property_constraints: Optional[List[Any]] = None,
     ):
         self.base = NcObject(
+            notifier,
             class_id=[1, 1],
             oid=oid,
             constant_oid=constant_oid,
             owner=owner,
             role=role,
             user_label=user_label,
-            notifier=notifier,
+            touchpoints=touchpoints,
+            runtime_property_constraints=runtime_property_constraints,
         )
 
         self.is_root = is_root

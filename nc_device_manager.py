@@ -19,6 +19,7 @@ from nc_object import NcMember, NcObject
 class NcDeviceManager(NcMember):
     def __init__(
         self,
+        notifier: asyncio.Queue,
         oid: int,
         constant_oid: bool,
         owner: Optional[int],
@@ -28,16 +29,19 @@ class NcDeviceManager(NcMember):
         manufacturer: NcManufacturer,
         product: NcProduct,
         serial_number: str,
-        notifier: asyncio.Queue,
+        touchpoints: Optional[List[Any]] = None,
+        runtime_property_constraints: Optional[List[Any]] = None,
     ):
         self.base = NcObject(
+            notifier,
             class_id=[1, 3, 1],
             oid=oid,
             constant_oid=constant_oid,
             owner=owner,
             role=role,
             user_label=user_label,
-            notifier=notifier,
+            touchpoints=touchpoints,
+            runtime_property_constraints=runtime_property_constraints,
         )
         self.nc_version = nc_version
         self.manufacturer = manufacturer

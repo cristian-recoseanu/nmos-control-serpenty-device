@@ -71,9 +71,7 @@ async def process_command(msg, root_block):
             status, error = NcMethodStatus.Error, str(e)
 
         if error is None:
-            result_obj = {"status": int(status)}
-            if value is not None:
-                result_obj["value"] = value
+            result_obj = {"status": int(status), "value": value}
             responses.append({"handle": handle, "result": result_obj})
         else:
             error_obj = {"status": int(status), "errorMessage": error}
