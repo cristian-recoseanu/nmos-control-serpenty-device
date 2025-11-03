@@ -72,8 +72,12 @@ class NcManager(NcMember):
     @staticmethod
     def get_class_descriptor(include_inherited: bool = True) -> "NcClassDescriptor":
         from data_types import NcClassDescriptor, NcDescriptor
-        from data_types import NcPropertyDescriptor, NcMethodDescriptor, NcEventDescriptor
-        
+        from data_types import (
+            NcPropertyDescriptor,
+            NcMethodDescriptor,
+            NcEventDescriptor,
+        )
+
         properties: list[NcPropertyDescriptor] = []
         methods: list[NcMethodDescriptor] = []
         events: list[NcEventDescriptor] = []
