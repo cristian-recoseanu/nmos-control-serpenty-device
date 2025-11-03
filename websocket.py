@@ -68,14 +68,14 @@ async def process_command(msg, root_block):
                 st, err, resp = root_block.invoke_method(oid, method_id, args)
                 status, error, value = st, err, resp
         except Exception as e:
-            status, error = NcMethodStatus.Error, str(e)
+            status, error = NcMethodStatus.DeviceError, str(e)
 
-        if error is None:
+        if status == NcMethodStatus.Ok:
             result_obj = {"status": int(status), "value": value}
             responses.append({"handle": handle, "result": result_obj})
         else:
             error_obj = {"status": int(status), "errorMessage": error}
-            responses.append({"handle": handle, "error": error_obj})
+            responses.append({"handle": handle, "result": error_obj})
     return {"messageType": MESSAGE_TYPE_COMMAND_RESPONSE, "responses": responses}
 
 
@@ -106,6 +106,22 @@ async def websocket_handler(request):
 
             mt = data.get("messageType")
             if mt == MESSAGE_TYPE_COMMAND and "commands" in data:
+                # Validate handles 1..65535
+                handles = [c.get("handle") for c in data.get("commands", [])]
+                invalid = any(
+                    not isinstance(h, int) or h <= 0 or h > 65535 for h in handles
+                )
+                if invalid:
+                    await conn.send_text(
+                        json.dumps(
+                            {
+                                "messageType": MESSAGE_TYPE_ERROR,
+                                "status": 400,
+                                "errorMessage": "Invalid message",
+                            }
+                        )
+                    )
+                    continue
                 await conn.send_text(
                     json.dumps(
                         await process_command(data, app_state.root_block),

@@ -1,7 +1,22 @@
+from __future__ import annotations
 import asyncio
-from typing import List, Optional, Any
+from typing import Any, List, Optional, TYPE_CHECKING
 
-from data_types import ElementId, NcMethodStatus, NcPropertyChangeType, make_event
+from data_types import (
+    ElementId,
+    NcMethodStatus,
+    NcPropertyChangeType,
+    NcClassDescriptor,
+    NcDescriptor,
+    NcPropertyDescriptor,
+    NcMethodDescriptor,
+    NcParameterDescriptor,
+    make_event,
+)
+
+if TYPE_CHECKING:
+    from data_types import NcEventDescriptor
+
 from nc_object import NcMember, NcObject
 
 
@@ -125,6 +140,7 @@ class NcBlock(NcMember):
                 "constantOid": m.get_constant_oid(),
                 "classId": m.get_class_id(),
                 "userLabel": m.get_user_label() or "",
+                "description": None,
                 "owner": self.base.get_oid(),
             }
             for m in self.members
@@ -138,6 +154,7 @@ class NcBlock(NcMember):
             "constantOid": member.get_constant_oid(),
             "classId": member.get_class_id(),
             "userLabel": member.get_user_label() or "",
+            "description": None,
             "owner": owner,
         }
 
@@ -152,6 +169,162 @@ class NcBlock(NcMember):
                 if isinstance(m, NcBlock):
                     results.extend(m.get_member_descriptors(args))
         return results
+
+    @staticmethod
+    def get_class_descriptor(include_inherited: bool = True) -> "NcClassDescriptor":
+        properties = [
+            NcPropertyDescriptor(
+                base=NcDescriptor(None),
+                id=ElementId(2, 1),
+                name="enabled",
+                typeName="NcBoolean",
+                isReadOnly=True,
+                isNullable=False,
+                isSequence=False,
+                isDeprecated=False,
+                constraints=None,
+            ),
+            NcPropertyDescriptor(
+                base=NcDescriptor(None),
+                id=ElementId(2, 2),
+                name="members",
+                typeName="NcBlockMemberDescriptor",
+                isReadOnly=True,
+                isNullable=False,
+                isSequence=True,
+                isDeprecated=False,
+                constraints=None,
+            ),
+        ]
+
+        methods = [
+            NcMethodDescriptor(
+                base=NcDescriptor(None),
+                id=ElementId(2, 1),
+                name="GetMemberDescriptors",
+                resultDatatype="NcMethodResultBlockMemberDescriptors",
+                parameters=[
+                    NcParameterDescriptor(
+                        base=NcDescriptor(None),
+                        name="recurse",
+                        typeName="NcBoolean",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    )
+                ],
+                isDeprecated=False,
+            ),
+            NcMethodDescriptor(
+                base=NcDescriptor(None),
+                id=ElementId(2, 2),
+                name="FindMembersByPath",
+                resultDatatype="NcMethodResultBlockMemberDescriptors",
+                parameters=[
+                    NcParameterDescriptor(
+                        base=NcDescriptor(None),
+                        name="path",
+                        typeName="NcRolePath",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    )
+                ],
+                isDeprecated=False,
+            ),
+            NcMethodDescriptor(
+                base=NcDescriptor(None),
+                id=ElementId(2, 3),
+                name="FindMembersByRole",
+                resultDatatype="NcMethodResultBlockMemberDescriptors",
+                parameters=[
+                    NcParameterDescriptor(
+                        base=NcDescriptor(None),
+                        name="role",
+                        typeName="NcString",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                    NcParameterDescriptor(
+                        base=NcDescriptor(None),
+                        name="caseSensitive",
+                        typeName="NcBoolean",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                    NcParameterDescriptor(
+                        base=NcDescriptor(None),
+                        name="matchWholeString",
+                        typeName="NcBoolean",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                    NcParameterDescriptor(
+                        base=NcDescriptor(None),
+                        name="recurse",
+                        typeName="NcBoolean",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                ],
+                isDeprecated=False,
+            ),
+            NcMethodDescriptor(
+                base=NcDescriptor(None),
+                id=ElementId(2, 4),
+                name="FindMembersByClassId",
+                resultDatatype="NcMethodResultBlockMemberDescriptors",
+                parameters=[
+                    NcParameterDescriptor(
+                        base=NcDescriptor(None),
+                        name="classId",
+                        typeName="NcClassId",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                    NcParameterDescriptor(
+                        base=NcDescriptor(None),
+                        name="includeDerived",
+                        typeName="NcBoolean",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                    NcParameterDescriptor(
+                        base=NcDescriptor(None),
+                        name="recurse",
+                        typeName="NcBoolean",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                ],
+                isDeprecated=False,
+            ),
+        ]
+
+        events: list[NcEventDescriptor] = []
+
+        if include_inherited:
+            base_desc = NcObject.get_class_descriptor(True)
+            properties = [*properties, *base_desc.properties]
+            methods = [*methods, *base_desc.methods]
+            events = [*events, *base_desc.events]
+
+        return NcClassDescriptor(
+            base=NcDescriptor("NcBlock class descriptor"),
+            classId=[1, 1],
+            name="NcBlock",
+            fixedRole=None,
+            properties=properties,
+            methods=methods,
+            events=events,
+        )
 
     # 2m2
     def find_members_by_path(self, args):
@@ -242,15 +415,4 @@ class NcBlock(NcMember):
                 if isinstance(m, NcBlock):
                     results.extend(m.find_members_by_class_id(args))
 
-        if self.is_root and matches_class_id(self.base.get_class_id()):
-            results.append(
-                {
-                    "role": self.base.get_role(),
-                    "oid": self.base.get_oid(),
-                    "constantOid": self.base.get_constant_oid(),
-                    "classId": self.base.get_class_id(),
-                    "userLabel": self.base.get_user_label() or "",
-                    "owner": self.base.get_oid(),
-                }
-            )
         return results
