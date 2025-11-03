@@ -1,6 +1,7 @@
+from __future__ import annotations
 import asyncio
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional
+from typing import Any, List, Optional, TYPE_CHECKING
 
 from data_types import (
     ElementId,
@@ -8,8 +9,25 @@ from data_types import (
     IdArgs,
     IdArgsValue,
     NcPropertyChangeType,
+    NcClassDescriptor,
+    NcDescriptor,
+    NcPropertyDescriptor,
+    NcMethodDescriptor,
+    NcParameterDescriptor,
+    NcEventDescriptor,
     make_event,
 )
+
+if TYPE_CHECKING:
+    from data_types import (
+        NcClassDescriptor,
+        NcDescriptor,
+        NcPropertyDescriptor,
+        NcMethodDescriptor,
+        NcParameterDescriptor,
+        NcEventDescriptor,
+    )
+    from data_types import make_event
 
 
 class NcMember(ABC):
@@ -111,7 +129,11 @@ class NcObject(NcMember):
         key = (id_args.id.level, id_args.id.index)
         if key in mapping:
             return NcMethodStatus.Ok, None, mapping[key]
-        return NcMethodStatus.PropertyNotImplemented, "Property not found", None
+        return (
+            NcMethodStatus.PropertyNotImplemented,
+            "Could not find the property",
+            None,
+        )
 
     async def _notify(self, prop_id, change_type, value, seq_idx=None):
         await self.notifier.put(
@@ -119,21 +141,318 @@ class NcObject(NcMember):
         )
 
     def set_property(self, oid, id_args_value):
-        if (
-            id_args_value.id.level == 1
-            and id_args_value.id.index == 6
-            and isinstance(id_args_value.value, str)
-        ):
-            self.user_label = id_args_value.value
+        if id_args_value.id.level == 1 and id_args_value.id.index == 6:
+            if isinstance(id_args_value.value, str):
+                self.user_label = id_args_value.value
+            elif id_args_value.value is None:
+                self.user_label = None
+            else:
+                return (
+                    NcMethodStatus.ParameterError,
+                    "Property value was invalid",
+                    False,
+                )
             asyncio.create_task(
                 self._notify(
                     id_args_value.id,
                     NcPropertyChangeType.ValueChanged,
-                    id_args_value.value,
+                    self.user_label,
                 )
             )
             return NcMethodStatus.Ok, None, True
-        return NcMethodStatus.PropertyNotImplemented, "Property not found", False
+        return (
+            NcMethodStatus.PropertyNotImplemented,
+            "Could not find the property",
+            False,
+        )
 
     def invoke_method(self, oid, method_id, args):
         return NcMethodStatus.MethodNotImplemented, "Methods not yet implemented", None
+
+    @staticmethod
+    def get_class_descriptor(include_inherited: bool = True) -> NcClassDescriptor:
+        properties = [
+            NcPropertyDescriptor(
+                base=NcDescriptor(
+                    "Static value. All instances of the same class will have the same identity value"
+                ),
+                id=ElementId(1, 1),
+                name="classId",
+                typeName="NcClassId",
+                isReadOnly=True,
+                isNullable=False,
+                isSequence=False,
+                isDeprecated=False,
+                constraints=None,
+            ),
+            NcPropertyDescriptor(
+                base=NcDescriptor("Object identifier"),
+                id=ElementId(1, 2),
+                name="oid",
+                typeName="NcOid",
+                isReadOnly=True,
+                isNullable=False,
+                isSequence=False,
+                isDeprecated=False,
+                constraints=None,
+            ),
+            NcPropertyDescriptor(
+                base=NcDescriptor("TRUE iff OID is hardwired into device"),
+                id=ElementId(1, 3),
+                name="constantOid",
+                typeName="NcBoolean",
+                isReadOnly=True,
+                isNullable=False,
+                isSequence=False,
+                isDeprecated=False,
+                constraints=None,
+            ),
+            NcPropertyDescriptor(
+                base=NcDescriptor(
+                    "OID of containing block. Can only ever be null for the root block"
+                ),
+                id=ElementId(1, 4),
+                name="owner",
+                typeName="NcOid",
+                isReadOnly=True,
+                isNullable=True,
+                isSequence=False,
+                isDeprecated=False,
+                constraints=None,
+            ),
+            NcPropertyDescriptor(
+                base=NcDescriptor("role of obj in containing block"),
+                id=ElementId(1, 5),
+                name="role",
+                typeName="NcString",
+                isReadOnly=True,
+                isNullable=False,
+                isSequence=False,
+                isDeprecated=False,
+                constraints=None,
+            ),
+            NcPropertyDescriptor(
+                base=NcDescriptor("Scribble strip"),
+                id=ElementId(1, 6),
+                name="userLabel",
+                typeName="NcString",
+                isReadOnly=False,
+                isNullable=True,
+                isSequence=False,
+                isDeprecated=False,
+                constraints=None,
+            ),
+            NcPropertyDescriptor(
+                base=NcDescriptor("Touchpoints to other contexts"),
+                id=ElementId(1, 7),
+                name="touchpoints",
+                typeName="NcTouchpoint",
+                isReadOnly=True,
+                isNullable=True,
+                isSequence=True,
+                isDeprecated=False,
+                constraints=None,
+            ),
+            NcPropertyDescriptor(
+                base=NcDescriptor("Runtime property constraints"),
+                id=ElementId(1, 8),
+                name="runtimePropertyConstraints",
+                typeName="NcPropertyConstraints",
+                isReadOnly=True,
+                isNullable=True,
+                isSequence=True,
+                isDeprecated=False,
+                constraints=None,
+            ),
+        ]
+
+        methods = [
+            NcMethodDescriptor(
+                base=NcDescriptor("Get property value"),
+                id=ElementId(1, 1),
+                name="Get",
+                resultDatatype="NcMethodResultPropertyValue",
+                parameters=[
+                    NcParameterDescriptor(
+                        base=NcDescriptor("Property id"),
+                        name="id",
+                        typeName="NcPropertyId",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    )
+                ],
+                isDeprecated=False,
+            ),
+            NcMethodDescriptor(
+                base=NcDescriptor("Set property value"),
+                id=ElementId(1, 2),
+                name="Set",
+                resultDatatype="NcMethodResult",
+                parameters=[
+                    NcParameterDescriptor(
+                        base=NcDescriptor("Property id"),
+                        name="id",
+                        typeName="NcPropertyId",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                    NcParameterDescriptor(
+                        base=NcDescriptor("Property value"),
+                        name="value",
+                        typeName=None,
+                        isNullable=True,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                ],
+                isDeprecated=False,
+            ),
+            NcMethodDescriptor(
+                base=NcDescriptor("Get sequence item"),
+                id=ElementId(1, 3),
+                name="GetSequenceItem",
+                resultDatatype="NcMethodResultPropertyValue",
+                parameters=[
+                    NcParameterDescriptor(
+                        base=NcDescriptor("Property id"),
+                        name="id",
+                        typeName="NcPropertyId",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                    NcParameterDescriptor(
+                        base=NcDescriptor("Index of item in the sequence"),
+                        name="index",
+                        typeName="NcId",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                ],
+                isDeprecated=False,
+            ),
+            NcMethodDescriptor(
+                base=NcDescriptor("Set sequence item value"),
+                id=ElementId(1, 4),
+                name="SetSequenceItem",
+                resultDatatype="NcMethodResult",
+                parameters=[
+                    NcParameterDescriptor(
+                        base=NcDescriptor("Property id"),
+                        name="id",
+                        typeName="NcPropertyId",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                    NcParameterDescriptor(
+                        base=NcDescriptor("Index of item in the sequence"),
+                        name="index",
+                        typeName="NcId",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                    NcParameterDescriptor(
+                        base=NcDescriptor("Value"),
+                        name="value",
+                        typeName=None,
+                        isNullable=True,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                ],
+                isDeprecated=False,
+            ),
+            NcMethodDescriptor(
+                base=NcDescriptor("Add item to sequence"),
+                id=ElementId(1, 5),
+                name="AddSequenceItem",
+                resultDatatype="NcMethodResultId",
+                parameters=[
+                    NcParameterDescriptor(
+                        base=NcDescriptor("Property id"),
+                        name="id",
+                        typeName="NcPropertyId",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                    NcParameterDescriptor(
+                        base=NcDescriptor("Value"),
+                        name="value",
+                        typeName=None,
+                        isNullable=True,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                ],
+                isDeprecated=False,
+            ),
+            NcMethodDescriptor(
+                base=NcDescriptor("Delete sequence item"),
+                id=ElementId(1, 6),
+                name="RemoveSequenceItem",
+                resultDatatype="NcMethodResult",
+                parameters=[
+                    NcParameterDescriptor(
+                        base=NcDescriptor("Property id"),
+                        name="id",
+                        typeName="NcPropertyId",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                    NcParameterDescriptor(
+                        base=NcDescriptor("Index of item in the sequence"),
+                        name="index",
+                        typeName="NcId",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    ),
+                ],
+                isDeprecated=False,
+            ),
+            NcMethodDescriptor(
+                base=NcDescriptor("Get sequence length"),
+                id=ElementId(1, 7),
+                name="GetSequenceLength",
+                resultDatatype="NcMethodResultLength",
+                parameters=[
+                    NcParameterDescriptor(
+                        base=NcDescriptor("Property id"),
+                        name="id",
+                        typeName="NcPropertyId",
+                        isNullable=False,
+                        isSequence=False,
+                        constraints=None,
+                    )
+                ],
+                isDeprecated=False,
+            ),
+        ]
+
+        events = [
+            NcEventDescriptor(
+                base=NcDescriptor("Property changed event"),
+                id=ElementId(1, 1),
+                name="PropertyChanged",
+                eventDatatype="NcPropertyChangedEventData",
+                isDeprecated=False,
+            )
+        ]
+
+        desc = NcClassDescriptor(
+            base=NcDescriptor("NcObject class descriptor"),
+            classId=[1],
+            name="NcObject",
+            fixedRole=None,
+            properties=properties,
+            methods=methods,
+            events=events,
+        )
+        return desc

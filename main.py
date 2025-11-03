@@ -19,12 +19,13 @@ from data_types import (
     NmosDevice,
     tai_timestamp,
     NcTouchpointNmos,
-    NcTouchpointBase,
+    NcTouchpoint,
     NcTouchpointResourceNmos,
 )
 
 from nc_block import NcBlock
 from nc_device_manager import NcDeviceManager
+from nc_class_manager import NcClassManager
 from nc_object import NcObject
 from websocket import CustomEncoder, websocket_handler
 
@@ -248,7 +249,7 @@ async def init_app():
         notifier=app_state.event_queue,
         touchpoints=[
             NcTouchpointNmos(
-                base=NcTouchpointBase(context_namespace="x-nmos"),
+                base=NcTouchpoint(context_namespace="x-nmos"),
                 resource=NcTouchpointResourceNmos(
                     resource_type="device",
                     id=app_state.device.id,
@@ -259,11 +260,24 @@ async def init_app():
     )
     root.add_member(device_manager)
 
+    # Add NcClassManager
+    class_manager = NcClassManager(
+        notifier=app_state.event_queue,
+        oid=3,
+        constant_oid=True,
+        owner=1,
+        role="ClassManager",
+        user_label="Class Manager",
+        touchpoints=None,
+        runtime_property_constraints=None,
+    )
+    root.add_member(class_manager)
+
     # Child member
     obj1 = NcObject(
         app_state.event_queue,
         [1],
-        3,
+        4,
         True,
         1,
         "my-obj-01",
@@ -277,9 +291,9 @@ async def init_app():
     child_block = NcBlock(
         app_state.event_queue,
         False,
-        4,
+        5,
         True,
-        None,
+        1,
         "my-block-01",
         None,
         True,
@@ -287,9 +301,9 @@ async def init_app():
     obj2 = NcObject(
         app_state.event_queue,
         [1],
-        5,
+        6,
         True,
-        3,
+        5,
         "my-nested-block-obj",
         "My nested block obj",
         None,

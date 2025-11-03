@@ -28,14 +28,14 @@ The following features are working:
     * Implementing the generic Set method of any object to set the value of any property ([NcObject](https://specs.amwa.tv/ms-05-02/branches/v1.0.x/docs/Framework.html#ncobject))
 * Offering an NcBlock implementation and advertising a root block and nested block
     * Implementing all [NcBlock](https://specs.amwa.tv/ms-05-02/branches/v1.0.x/docs/Framework.html#ncblock) methods
+* Offering a [Class Manager](https://specs.amwa.tv/ms-05-02/branches/v1.0.x/docs/Framework.html#ncclassmanager) implementation
+    * Implementing [class discovery](https://specs.amwa.tv/ms-05-02/branches/v1.0.x/docs/Managers.html#class-manager)
+    * Implementing [datatype discovery](https://specs.amwa.tv/ms-05-02/branches/v1.0.x/docs/Managers.html#class-manager)
 
 ## To do
 
 The following features are planned:
 
-* Implementing the [ClassManager](https://specs.amwa.tv/ms-05-02/branches/v1.0.x/docs/Framework.html#ncclassmanager)
-    * Implementing [class discovery](https://specs.amwa.tv/ms-05-02/branches/v1.0.x/docs/Managers.html#class-manager)
-    * Implementing [datatype discovery](https://specs.amwa.tv/ms-05-02/branches/v1.0.x/docs/Managers.html#class-manager)
 * Implementing the [IS-04 registration workflow](https://specs.amwa.tv/is-04/releases/v1.3.3/APIs/RegistrationAPI.html) so we can register resources in an NMOS registry and maintain the registrations via heartbeats
 * Implementing the [NcReceiverMonitor](https://specs.amwa.tv/nmos-control-feature-sets/branches/main/monitoring/#ncreceivermonitor) model
 * Implementing the [NcSenderMonitor](https://specs.amwa.tv/nmos-control-feature-sets/branches/main/monitoring/#ncsendermonitor) model

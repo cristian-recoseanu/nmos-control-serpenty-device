@@ -1,5 +1,6 @@
+from __future__ import annotations
 import asyncio
-from typing import Any, List, Optional
+from typing import Any, List, Optional, TYPE_CHECKING
 
 from data_types import (
     ElementId,
@@ -12,8 +13,23 @@ from data_types import (
     NcProduct,
     NcPropertyChangeType,
     NcResetCause,
+    NcClassDescriptor,
+    NcDescriptor,
+    NcPropertyDescriptor,
+    NcMethodDescriptor,
+    NcEventDescriptor,
 )
-from nc_object import NcMember, NcObject
+
+if TYPE_CHECKING:
+    from data_types import (
+        NcClassDescriptor,
+        NcDescriptor,
+        NcPropertyDescriptor,
+        NcMethodDescriptor,
+        NcEventDescriptor,
+    )
+from nc_object import NcMember
+from nc_manager import NcManager
 
 
 class NcDeviceManager(NcMember):
@@ -32,7 +48,7 @@ class NcDeviceManager(NcMember):
         touchpoints: Optional[List[Any]] = None,
         runtime_property_constraints: Optional[List[Any]] = None,
     ):
-        self.base = NcObject(
+        self.base = NcManager(
             notifier,
             class_id=[1, 3, 1],
             oid=oid,
@@ -100,7 +116,11 @@ class NcDeviceManager(NcMember):
                 return NcMethodStatus.Ok, None, int(self.reset_cause)
             if idx == 10:
                 return NcMethodStatus.Ok, None, self.message
-            return NcMethodStatus.BadOid, "Property not found", None
+            return (
+                NcMethodStatus.PropertyNotImplemented,
+                "Could not find the property",
+                None,
+            )
         # fall back to base object
         return self.base.get_property(_oid, id_args)
 
@@ -181,5 +201,139 @@ class NcDeviceManager(NcMember):
     def invoke_method(
         self, _oid: int, method_id: ElementId, args: Any
     ) -> tuple[NcMethodStatus, Optional[str], Any]:
-        # No methods on NcDeviceManager itself in this implementation - delegate to base
+        # No methods on NcDeviceManager - delegate to base
         return self.base.invoke_method(_oid, method_id, args)
+
+    @staticmethod
+    def get_class_descriptor(include_inherited: bool = True) -> "NcClassDescriptor":
+        properties = [
+            NcPropertyDescriptor(
+                NcDescriptor(None),
+                ElementId(3, 1),
+                "ncVersion",
+                "NcVersionCode",
+                True,
+                False,
+                False,
+                False,
+                None,
+            ),
+            NcPropertyDescriptor(
+                NcDescriptor(None),
+                ElementId(3, 2),
+                "manufacturer",
+                "NcManufacturer",
+                True,
+                False,
+                False,
+                False,
+                None,
+            ),
+            NcPropertyDescriptor(
+                NcDescriptor(None),
+                ElementId(3, 3),
+                "product",
+                "NcProduct",
+                True,
+                False,
+                False,
+                False,
+                None,
+            ),
+            NcPropertyDescriptor(
+                NcDescriptor(None),
+                ElementId(3, 4),
+                "serialNumber",
+                "NcString",
+                True,
+                False,
+                False,
+                False,
+                None,
+            ),
+            NcPropertyDescriptor(
+                NcDescriptor(None),
+                ElementId(3, 5),
+                "userInventoryCode",
+                "NcString",
+                False,
+                True,
+                False,
+                False,
+                None,
+            ),
+            NcPropertyDescriptor(
+                NcDescriptor(None),
+                ElementId(3, 6),
+                "deviceName",
+                "NcString",
+                False,
+                True,
+                False,
+                False,
+                None,
+            ),
+            NcPropertyDescriptor(
+                NcDescriptor(None),
+                ElementId(3, 7),
+                "deviceRole",
+                "NcString",
+                False,
+                True,
+                False,
+                False,
+                None,
+            ),
+            NcPropertyDescriptor(
+                NcDescriptor(None),
+                ElementId(3, 8),
+                "operationalState",
+                "NcDeviceOperationalState",
+                True,
+                False,
+                False,
+                False,
+                None,
+            ),
+            NcPropertyDescriptor(
+                NcDescriptor(None),
+                ElementId(3, 9),
+                "resetCause",
+                "NcResetCause",
+                True,
+                False,
+                False,
+                False,
+                None,
+            ),
+            NcPropertyDescriptor(
+                NcDescriptor(None),
+                ElementId(3, 10),
+                "message",
+                "NcString",
+                True,
+                True,
+                False,
+                False,
+                None,
+            ),
+        ]
+
+        methods: list[NcMethodDescriptor] = []
+        events: list[NcEventDescriptor] = []
+
+        if include_inherited:
+            base = NcManager.get_class_descriptor(True)
+            properties = [*properties, *base.properties]
+            methods = [*methods, *base.methods]
+            events = [*events, *base.events]
+
+        return NcClassDescriptor(
+            base=NcDescriptor("NcDeviceManager class descriptor"),
+            classId=[1, 3, 1],
+            name="NcDeviceManager",
+            fixedRole="DeviceManager",
+            properties=properties,
+            methods=methods,
+            events=events,
+        )
