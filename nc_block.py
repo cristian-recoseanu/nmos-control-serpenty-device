@@ -104,7 +104,64 @@ class NcBlock(NcMember):
                 return NcMethodStatus.Ok, None, self.find_members_by_role(args)
             if (lvl, idx) == (2, 4):  # 2m4
                 return NcMethodStatus.Ok, None, self.find_members_by_class_id(args)
+
+            # Handle GetSequenceItem (1m3) for members property (2p2)
+            if (lvl, idx) == (1, 3):  # GetSequenceItem
+                if not isinstance(args, dict):
+                    return NcMethodStatus.ParameterError, "Invalid arguments", None
+
+                if "id" not in args or "index" not in args:
+                    return NcMethodStatus.ParameterError, "Invalid arguments", None
+
+                # Check if the id is for the members property (2p2)
+                id_obj = args.get("id", {})
+                if not isinstance(id_obj, dict):
+                    return NcMethodStatus.ParameterError, "Invalid id parameter", None
+
+                level = id_obj.get("level")
+                index = id_obj.get("index")
+
+                if level != 2 or index != 2:  # Not the members property (2p2)
+                    return self.base.invoke_method(oid, method_id, args)
+
+                if not isinstance(args.get("index"), int) or args["index"] < 0:
+                    return (
+                        NcMethodStatus.ParameterError,
+                        "Invalid index parameter",
+                        None,
+                    )
+
+                members = self.generate_members_descriptors()
+                if args["index"] >= len(members):
+                    return (
+                        NcMethodStatus.IndexOutOfBounds,
+                        f"Index {args['index']} out of bounds",
+                        None,
+                    )
+
+                return NcMethodStatus.Ok, None, members[args["index"]]
+
+            # Handle GetSequenceLength (1m7) for members property (2p2)
+            if (lvl, idx) == (1, 7):  # GetSequenceLength
+                if not isinstance(args, dict) or "id" not in args:
+                    return NcMethodStatus.ParameterError, "Invalid arguments", None
+
+                # Check if the id is for the members property (2p2)
+                id_obj = args.get("id", {})
+                if not isinstance(id_obj, dict):
+                    return NcMethodStatus.ParameterError, "Invalid id parameter", None
+
+                level = id_obj.get("level")
+                index = id_obj.get("index")
+
+                if level != 2 or index != 2:  # Not the members property (2p2)
+                    return self.base.invoke_method(oid, method_id, args)
+
+                members = self.generate_members_descriptors()
+                return NcMethodStatus.Ok, None, len(members)
+
             return self.base.invoke_method(oid, method_id, args)
+
         m = self.find_member(oid)
         return (
             m.invoke_method(oid, method_id, args)

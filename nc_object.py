@@ -160,6 +160,20 @@ class NcObject(NcMember):
                 )
             )
             return NcMethodStatus.Ok, None, True
+        elif id_args_value.id.level == 1 and (
+            id_args_value.id.index == 1
+            or id_args_value.id.index == 2
+            or id_args_value.id.index == 3
+            or id_args_value.id.index == 4
+            or id_args_value.id.index == 5
+            or id_args_value.id.index == 7
+            or id_args_value.id.index == 8
+        ):
+            return (
+                NcMethodStatus.Readonly,
+                "Property is readonly",
+                False,
+            )
         return (
             NcMethodStatus.PropertyNotImplemented,
             "Could not find the property",
@@ -167,7 +181,85 @@ class NcObject(NcMember):
         )
 
     def invoke_method(self, oid, method_id, args):
-        return NcMethodStatus.MethodNotImplemented, "Methods not yet implemented", None
+        if method_id.level == 1 and method_id.index == 3:  # GetSequenceItem (1m3)
+            if not isinstance(args, dict):
+                return NcMethodStatus.ParameterError, "Invalid arguments", None
+
+            if "id" not in args or "index" not in args:
+                return NcMethodStatus.ParameterError, "Invalid arguments", None
+
+            if not isinstance(args.get("index"), int) or args["index"] < 0:
+                return NcMethodStatus.ParameterError, "Invalid index parameter", None
+
+            prop_id = args.get("id", {})
+            if not isinstance(prop_id, dict):
+                return NcMethodStatus.ParameterError, "Invalid id parameter", None
+
+            level = prop_id.get("level")
+            index = prop_id.get("index")
+
+            # Handle touchpoints (1p7)
+            if level == 1 and index == 7:
+                touchpoints = self.touchpoints or []
+                if args["index"] >= len(touchpoints):
+                    return (
+                        NcMethodStatus.IndexOutOfBounds,
+                        f"Index {args['index']} out of bounds",
+                        None,
+                    )
+                return (
+                    NcMethodStatus.Ok,
+                    None,
+                    touchpoints[args["index"]].to_dict()
+                    if touchpoints[args["index"]]
+                    else None,
+                )
+
+            # Handle runtimePropertyConstraints (1p8)
+            elif level == 1 and index == 8:
+                constraints = self.runtime_property_constraints or []
+                if args["index"] >= len(constraints):
+                    return (
+                        NcMethodStatus.IndexOutOfBounds,
+                        f"Index {args['index']} out of bounds",
+                        None,
+                    )
+                return (
+                    NcMethodStatus.Ok,
+                    None,
+                    constraints[args["index"]].to_dict()
+                    if constraints[args["index"]]
+                    else None,
+                )
+
+            return NcMethodStatus.ParameterError, "Invalid property", None
+
+        elif method_id.level == 1 and method_id.index == 7:  # GetSequenceLength (1m7)
+            if not isinstance(args, dict) or "id" not in args:
+                return NcMethodStatus.ParameterError, "Invalid arguments", None
+
+            prop_id = args.get("id", {})
+            if not isinstance(prop_id, dict):
+                return NcMethodStatus.ParameterError, "Invalid id parameter", None
+
+            level = prop_id.get("level")
+            index = prop_id.get("index")
+
+            # Handle touchpoints (1p7)
+            if level == 1 and index == 7:
+                return NcMethodStatus.Ok, None, len(self.touchpoints or [])
+
+            # Handle runtimePropertyConstraints (1p8)
+            elif level == 1 and index == 8:
+                return (
+                    NcMethodStatus.Ok,
+                    None,
+                    len(self.runtime_property_constraints or []),
+                )
+
+            return NcMethodStatus.ParameterError, "Invalid property", None
+
+        return NcMethodStatus.MethodNotImplemented, "Method not implemented", None
 
     @staticmethod
     def get_class_descriptor(include_inherited: bool = True) -> NcClassDescriptor:
