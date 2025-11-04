@@ -160,6 +160,20 @@ class NcObject(NcMember):
                 )
             )
             return NcMethodStatus.Ok, None, True
+        elif id_args_value.id.level == 1 and (
+            id_args_value.id.index == 1
+            or id_args_value.id.index == 2
+            or id_args_value.id.index == 3
+            or id_args_value.id.index == 4
+            or id_args_value.id.index == 5
+            or id_args_value.id.index == 7
+            or id_args_value.id.index == 8
+        ):
+            return (
+                NcMethodStatus.Readonly,
+                "Property is readonly",
+                False,
+            )
         return (
             NcMethodStatus.PropertyNotImplemented,
             "Could not find the property",
