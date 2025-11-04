@@ -309,6 +309,72 @@ class NcClassManager(NcMember):
     def invoke_method(
         self, _oid: int, method_id, args: Any
     ) -> tuple[NcMethodStatus, Optional[str], Any]:
+        # Handle GetSequenceItem (1m3)
+        if method_id.level == 1 and method_id.index == 3:
+            if not isinstance(args, dict):
+                return NcMethodStatus.ParameterError, "Invalid arguments", None
+
+            if "id" not in args or "index" not in args:
+                return NcMethodStatus.ParameterError, "Invalid arguments", None
+
+            if not isinstance(args.get("index"), int) or args["index"] < 0:
+                return NcMethodStatus.ParameterError, "Invalid index parameter", None
+
+            # Check if the id is for controlClasses (3p1) or datatypes (3p2)
+            id_obj = args.get("id", {})
+            if not isinstance(id_obj, dict):
+                return NcMethodStatus.ParameterError, "Invalid id parameter", None
+
+            level = id_obj.get("level")
+            index = id_obj.get("index")
+
+            # Handle controlClasses (3p1)
+            if level == 3 and index == 1:
+                control_classes = list(self._control_classes.values())
+                if args["index"] >= len(control_classes):
+                    return (
+                        NcMethodStatus.IndexOutOfBounds,
+                        f"Index {args['index']} out of bounds",
+                        None,
+                    )
+                return NcMethodStatus.Ok, None, control_classes[args["index"]]
+
+            # Handle datatypes (3p2)
+            elif level == 3 and index == 2:
+                datatypes = [dtype.to_dict() for dtype in self._datatypes.values()]
+                if args["index"] >= len(datatypes):
+                    return (
+                        NcMethodStatus.IndexOutOfBounds,
+                        f"Index {args['index']} out of bounds",
+                        None,
+                    )
+                return NcMethodStatus.Ok, None, datatypes[args["index"]]
+
+            return NcMethodStatus.ParameterError, "Invalid property", None
+
+        # Handle GetSequenceLength (1m7)
+        elif method_id.level == 1 and method_id.index == 7:
+            if not isinstance(args, dict) or "id" not in args:
+                return NcMethodStatus.ParameterError, "Invalid arguments", None
+
+            id_obj = args.get("id", {})
+            if not isinstance(id_obj, dict):
+                return NcMethodStatus.ParameterError, "Invalid id parameter", None
+
+            level = id_obj.get("level")
+            index = id_obj.get("index")
+
+            # Handle controlClasses (3p1)
+            if level == 3 and index == 1:
+                return NcMethodStatus.Ok, None, len(self._control_classes)
+
+            # Handle datatypes (3p2)
+            elif level == 3 and index == 2:
+                return NcMethodStatus.Ok, None, len(self._datatypes)
+
+            return NcMethodStatus.ParameterError, "Invalid property", None
+
+        # Existing methods
         if method_id.level == 3 and method_id.index == 1:
             class_id = args.get("classId") or []
             include_inherited = bool(args.get("includeInherited", False))
