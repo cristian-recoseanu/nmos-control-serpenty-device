@@ -34,7 +34,7 @@ from websocket import CustomEncoder, websocket_handler
 class AppState:
     def __init__(self):
         self.connections: Dict[str, any] = {}
-        self.event_queue: asyncio.Queue = asyncio.Queue()
+        self.event_queue: Optional[asyncio.Queue] = None
         self.root_block: Optional[NcBlock] = None
 
         # Get hostname
@@ -84,6 +84,10 @@ class AppState:
                 )
             ],
         )
+
+    async def setup(self):
+        self.event_queue = asyncio.Queue()
+        asyncio.create_task(self.event_loop())
 
     async def notify_subscribers(self, ev):
         text = json.dumps(
@@ -177,6 +181,8 @@ async def init_app():
 
     # Store app_state in the app for access by handlers
     app["app_state"] = app_state
+
+    await app_state.setup()
 
     app.add_routes(
         [
@@ -346,7 +352,6 @@ async def init_app():
 
     app_state.root_block = root
 
-    asyncio.create_task(app_state.event_loop())
     return app
 
 
