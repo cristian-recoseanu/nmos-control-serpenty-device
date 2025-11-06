@@ -36,7 +36,7 @@ jobs:
 
     - name: Start App
       run: |
-        python main.py &
+        python3 main.py &
         echo $! > app_pid.txt
 
     - name: Wait for app to be ready
