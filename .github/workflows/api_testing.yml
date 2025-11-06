@@ -36,11 +36,8 @@ jobs:
 
     - name: Start App
       run: |
-        echo "Starting app in background..."
-        nohup python3 main.py > app.log 2>&1 &
+        python3 main.py &
         echo $! > app_pid.txt
-        sleep 2
-        echo "App started with PID $(cat app_pid.txt)"
 
     - name: Wait for app to be ready
       run: |
@@ -93,10 +90,5 @@ jobs:
       if: always()
       run: |
         if [ -f app_pid.txt ]; then
-          PID=$(cat app_pid.txt)
-          echo "Stopping app with PID $PID"
-          kill $PID || true
+          kill $(cat app_pid.txt) || true
         fi
-        echo "---- FINAL APP LOG ----"
-        cat app.log || true
-
