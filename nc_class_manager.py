@@ -28,6 +28,7 @@ from nc_manager import NcManager
 from nc_object import NcMember, NcObject
 from nc_device_manager import NcDeviceManager
 from nc_block import NcBlock
+from nc_worker import NcWorker
 
 
 class NcClassManager(NcMember):
@@ -86,6 +87,7 @@ class NcClassManager(NcMember):
 
         add([1], NcObject.get_class_descriptor(False).to_dict())
         add([1, 1], NcBlock.get_class_descriptor(False).to_dict())
+        add([1, 2], NcWorker.get_class_descriptor(False).to_dict())
         add([1, 3], NcManager.get_class_descriptor(False).to_dict())
         add([1, 3, 1], NcDeviceManager.get_class_descriptor(False).to_dict())
         add([1, 3, 2], NcClassManager.get_class_descriptor(False).to_dict())
@@ -401,6 +403,12 @@ class NcClassManager(NcMember):
                     NcMethodStatus.Ok,
                     None,
                     NcBlock.get_class_descriptor(True).to_dict(),
+                )
+            elif class_id == [1, 2]:
+                return (
+                    NcMethodStatus.Ok,
+                    None,
+                    NcWorker.get_class_descriptor(True).to_dict(),
                 )
             elif class_id == [1, 3]:
                 return (

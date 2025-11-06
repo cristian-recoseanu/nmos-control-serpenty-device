@@ -27,6 +27,7 @@ from nc_block import NcBlock
 from nc_device_manager import NcDeviceManager
 from nc_class_manager import NcClassManager
 from nc_object import NcObject
+from nc_worker import NcWorker
 from websocket import CustomEncoder, websocket_handler
 
 
@@ -287,11 +288,26 @@ async def init_app():
     )
     root.add_member(obj1)
 
+    # Add NcWorker
+    worker1 = NcWorker(
+        class_id=[1, 2],
+        oid=5,
+        constant_oid=True,
+        owner=1,
+        role="my-worker-01",
+        user_label="My worker 01",
+        enabled=True,
+        touchpoints=None,
+        runtime_property_constraints=None,
+        notifier=app_state.event_queue,
+    )
+    root.add_member(worker1)
+
     # Child block
     child_block = NcBlock(
         app_state.event_queue,
         False,
-        5,
+        6,
         True,
         1,
         "my-block-01",
@@ -301,15 +317,31 @@ async def init_app():
     obj2 = NcObject(
         app_state.event_queue,
         [1],
-        6,
+        7,
         True,
-        5,
+        6,
         "my-nested-block-obj",
         "My nested block obj",
         None,
         None,
     )
     child_block.add_member(obj2)
+
+    # Add NcWorker to child block
+    worker2 = NcWorker(
+        class_id=[1, 2],
+        oid=8,
+        constant_oid=True,
+        owner=6,
+        role="my-worker-02",
+        user_label="My worker 02",
+        enabled=True,
+        touchpoints=None,
+        runtime_property_constraints=None,
+        notifier=app_state.event_queue,
+    )
+    child_block.add_member(worker2)
+
     root.add_member(child_block)
 
     app_state.root_block = root
