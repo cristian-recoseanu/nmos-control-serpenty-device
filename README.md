@@ -1,5 +1,8 @@
 # nmos-control-serpenty-device
 
+[![Build Checks](https://github.com/cristian-recoseanu/nmos-control-serpenty-device/actions/workflows/build_checks.yml/badge.svg)](https://github.com/cristian-recoseanu/nmos-control-serpenty-device/actions/workflows/build_checks.yml)
+[![API Testing](https://github.com/cristian-recoseanu/nmos-control-serpenty-device/actions/workflows/api_testing.yml/badge.svg)](https://github.com/cristian-recoseanu/nmos-control-serpenty-device/actions/workflows/api_testing.yml)
+
 An example NMOS Device implementing [IS-12](https://specs.amwa.tv/is-12/).
 
 ## Get started
