@@ -2,7 +2,7 @@
 -r requirements.txt
 
 # Linting & Formatting
-ruff>=0.16.9
+ruff>=0.16.10
 
 # Type Checking
 mypy>=2.4.0
